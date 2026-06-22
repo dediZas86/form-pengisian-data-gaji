@@ -126,7 +126,7 @@ if submit:
         st.success("✅ Data berhasil disimpan! Cek kembali sebelum kirim ke atasan")
         st.dataframe(df_baru, use_container_width=True)
 
-        # BIKIN PDF
+        # BIKIN PDF - PAKE FILE TEMP BIAR ANTI ERROR
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -154,7 +154,12 @@ if submit:
         pdf.set_font("Arial", "", 11)
         pdf.cell(0, 7, "TTD HRD:........................", 0, 1)
 
-        pdf_output = pdf.output(dest="S").encode("latin-1", "ignore")
+        # FIX ANTI ERROR: simpan ke file temp dulu
+        pdf_file = f"temp_{nama_karyawan}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+        pdf.output(pdf_file)
+        with open(pdf_file, "rb") as f:
+            pdf_output = f.read()
+        os.remove(pdf_file)
 
         st.download_button(
             label="📄 Download Bukti PDF",
