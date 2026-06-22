@@ -10,7 +10,7 @@ st.title("===Data Potongan Gaji===")
 karyawan_list = ["Pilih...", "Tambah Karyawan Baru"]
 file_excel = "rekap_potongan.xlsx"
 
-# Bikin excel + header lengkap sesuai urutan lu
+# Bikin excel + header lengkap
 if not os.path.exists(file_excel):
     pd.DataFrame(columns=[
         "Waktu", "Nama Kantor", "Nama Karyawan", "Jumlah Hari Kerja",
@@ -73,8 +73,8 @@ with st.form("form_potongan"):
     tgl_masuk = st.date_input("Tanggal Karyawan Baru Masuk")
     
     st.subheader("Upload Dokumen")
-    ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg","png","pdf"])
-    surat_sakit = st.file_uploader("Upload Surat Keterangan Sakit dari Dokter/Klinik/Puskesmas", type=["jpg","png","pdf"])
+    ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg","jpeg","png","pdf"])
+    surat_sakit = st.file_uploader("Upload Surat Keterangan Sakit dari Dokter/Klinik/Puskesmas", type=["jpg","jpeg","png","pdf"])
     
     st.caption("Keterangan: Sebelum kirim Cek Kembali Data yang anda kirimkan")
     submit = st.form_submit_button("Simpan Data", type="primary")
@@ -126,9 +126,11 @@ if submit:
         st.success("✅ Data berhasil disimpan! Cek kembali sebelum kirim ke atasan")
         st.dataframe(df_baru, use_container_width=True)
 
-        # BIKIN PDF - PAKE FILE TEMP BIAR ANTI ERROR
+        # BIKIN PDF 1 FILE UTUH: BUKTI + KTP + SURAT SAKIT
         pdf = FPDF()
         pdf.add_page()
+
+        # HALAMAN 1: BUKTI POTONGAN
         pdf.set_font("Arial", "B", 16)
         pdf.cell(0, 10, "BUKTI POTONGAN GAJI", 0, 1, "C")
         pdf.ln(5)
@@ -154,7 +156,41 @@ if submit:
         pdf.set_font("Arial", "", 11)
         pdf.cell(0, 7, "TTD HRD:........................", 0, 1)
 
-        # FIX ANTI ERROR: simpan ke file temp dulu
+        # HALAMAN 2: KTP
+        if ktp_baru is not None:
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 14)
+            pdf.cell(0, 10, "LAMPIRAN: KTP KARYAWAN BARU", 0, 1, "C")
+            pdf.ln(5)
+            
+            ktp_path = f"temp_ktp_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+            with open(ktp_path, "wb") as f:
+                f.write(ktp_baru.getbuffer())
+            
+            try:
+                pdf.image(ktp_path, x=10, y=30, w=190)
+            except:
+                pdf.cell(0, 10, f"File: {ktp_baru.name}", 0, 1)
+            os.remove(ktp_path)
+
+        # HALAMAN 3: SURAT SAKIT
+        if surat_sakit is not None:
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 14)
+            pdf.cell(0, 10, "LAMPIRAN: SURAT KETERANGAN SAKIT", 0, 1, "C")
+            pdf.ln(5)
+            
+            surat_path = f"temp_surat_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+            with open(surat_path, "wb") as f:
+                f.write(surat_sakit.getbuffer())
+            
+            try:
+                pdf.image(surat_path, x=10, y=30, w=190)
+            except:
+                pdf.cell(0, 10, f"File: {surat_sakit.name}", 0, 1)
+            os.remove(surat_path)
+
+        # Simpan PDF temp + download
         pdf_file = f"temp_{nama_karyawan}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
         pdf.output(pdf_file)
         with open(pdf_file, "rb") as f:
@@ -162,9 +198,9 @@ if submit:
         os.remove(pdf_file)
 
         st.download_button(
-            label="📄 Download Bukti PDF",
+            label="📄 Download Bukti PDF Lengkap",
             data=pdf_output,
-            file_name=f"Bukti_{nama_karyawan}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+            file_name=f"Bukti_Lengkap_{nama_karyawan}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
             mime="application/pdf"
         )
 
