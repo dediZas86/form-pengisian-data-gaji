@@ -17,18 +17,17 @@ if "rekap_list" not in st.session_state:
 def to_int(val):
     return int(val) if val is not None else 0
 
-def add_file_to_pdf(pdf_obj, uploaded_file, title):
-    if uploaded_file is None:
+def add_file_to_pdf_from_bytes(pdf_obj, file_bytes, file_name, title):
+    if file_bytes is None:
         return
     pdf_obj.add_page()
     pdf_obj.set_font("Arial", "B", 14)
     pdf_obj.cell(0, 10, title, 0, 1, "C")
     pdf_obj.ln(5)
     
-    file_bytes = uploaded_file.getvalue()
-    file_ext = uploaded_file.name.split('.')[-1].lower()
+    ext = file_name.split('.')[-1].lower() if file_name else ""
     
-    if file_ext in ['jpg', 'jpeg', 'png']:
+    if ext in ['jpg', 'jpeg', 'png']:
         img = Image.open(io.BytesIO(file_bytes))
         img_path = f"temp_img_{datetime.now().strftime('%H%M%S%f')}.jpg"
         img.convert('RGB').save(img_path)
@@ -45,7 +44,7 @@ def add_file_to_pdf(pdf_obj, uploaded_file, title):
         os.remove(img_path)
     else:
         pdf_obj.set_font("Arial", "", 11)
-        pdf_obj.cell(0, 7, f"File terlampir: {uploaded_file.name}", 0, 1)
+        pdf_obj.cell(0, 7, f"File terlampir: {file_name}", 0, 1)
 
 def generate_pdf_bukti(data):
     pdf = FPDF()
@@ -106,14 +105,11 @@ def generate_pdf_bukti(data):
     
     pdf.ln(8)
     pdf.set_font("Arial", "I", 10)
-    pdf.cell(0, 6, "Mohon karyawan mengirim file PDF ini ke Admin HRD", 0, 1, "C")
+    pdf.cell(0, 6, "Mohon karyawan mengirim file PDF ini via WhatsApp ke Bagian Pengurus PUSAF", 0, 1, "C")
     
-    pdf.ln(5)
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 7, "TTD HRD:........................    TTD Karyawan:........................", 0, 1)
-    
-    add_file_to_pdf(pdf, data.get('ktp_baru'), "LAMPIRAN: KTP KARYAWAN BARU")
-    add_file_to_pdf(pdf, data.get('surat_sakit'), "LAMPIRAN: SURAT KETERANGAN SAKIT")
+    # Gambar di akhir PDF bukti
+    add_file_to_pdf_from_bytes(pdf, data.get('ktp_bytes'), data.get('ktp_name'), "LAMPIRAN: KTP KARYAWAN BARU")
+    add_file_to_pdf_from_bytes(pdf, data.get('surat_bytes'), data.get('surat_name'), "LAMPIRAN: SURAT KETERANGAN SAKIT")
     
     pdf_file = f"temp_{datetime.now().strftime('%H%M%S%f')}.pdf"
     pdf.output(pdf_file)
@@ -191,6 +187,13 @@ if submit:
         st.error("❌ Nama Kantor, Nama Karyawan & Jumlah Hari Kerja wajib diisi!")
         st.stop()
     
+    # Simpan file jadi bytes biar ga ilang
+    ktp_bytes = ktp_baru.getvalue() if ktp_baru else None
+    ktp_name = ktp_baru.name if ktp_baru else None
+    
+    surat_bytes = surat_sakit.getvalue() if surat_sakit else None
+    surat_name = surat_sakit.name if surat_sakit else None
+    
     jumlah_hari_kerja = to_int(jumlah_hari_kerja)
     potongan_bon = to_int(potongan_bon)
     sisa_bon = to_int(sisa_bon)
@@ -220,8 +223,8 @@ if submit:
         "hari_kerja": jumlah_hari_kerja,
         "tgl_keluar": tgl_keluar,
         "tgl_masuk": tgl_masuk,
-        "ktp_baru": ktp_baru,
-        "surat_sakit": surat_sakit,
+        "ktp_bytes": ktp_bytes, "ktp_name": ktp_name,
+        "surat_bytes": surat_bytes, "surat_name": surat_name,
         "rincian": {
             "bon": potongan_bon, "sisa_bon": sisa_bon,
             "kredit": potongan_kredit, "sisa_kredit": sisa_kredit,
@@ -253,10 +256,10 @@ if submit:
     )
     st.session_state.pot_lain_list = []
 
-# Tombol Rekap PDF
+# Tombol Rekap PDF dengan gambar di akhir tiap karyawan
 if st.session_state.rekap_list:
     st.markdown("---")
-    st.subheader("📊 Rekap Semua Karyawan - Format List")
+    st.subheader("📊 Rekap Semua Karyawan - Format List + Gambar")
     
     if st.button("📄 Generate PDF Rekap Semua", use_container_width=True):
         pdf_rekap = FPDF()
@@ -314,10 +317,11 @@ if st.session_state.rekap_list:
             
             pdf_rekap.ln(8)
             pdf_rekap.set_font("Arial", "I", 10)
-            pdf_rekap.cell(0, 6, "Mohon karyawan mengirim file PDF ini ke Admin HRD", 0, 1, "C")
-            pdf_rekap.ln(5)
-            pdf_rekap.set_font("Arial", "", 11)
-            pdf_rekap.cell(0, 7, "TTD HRD:........................    TTD Karyawan:........................", 0, 1)
+            pdf_rekap.cell(0, 6, "Mohon karyawan mengirim file PDF ini via WhatsApp ke Bagian Pengurus PUSAF", 0, 1, "C")
+            
+            # Gambar di akhir tiap rekap karyawan
+            add_file_to_pdf_from_bytes(pdf_rekap, data.get('ktp_bytes'), data.get('ktp_name'), f"LAMPIRAN KTP - {data['karyawan']}")
+            add_file_to_pdf_from_bytes(pdf_rekap, data.get('surat_bytes'), data.get('surat_name'), f"LAMPIRAN SURAT SAKIT - {data['karyawan']}")
         
         pdf_file = f"rekap_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
         pdf_rekap.output(pdf_file)
@@ -333,4 +337,4 @@ if st.session_state.rekap_list:
             use_container_width=True
         )
     
-    st.caption(f"Total {len(st.session_state.rekap_list)} data tersimpan")
+    st.caption(f"Total {len(st.session_state.rekap_list)} data tersimpan. Data + gambar hilang jika app di-reboot")
