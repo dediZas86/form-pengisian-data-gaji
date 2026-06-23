@@ -1,85 +1,107 @@
 import streamlit as st
 import pandas as pd
-from fpdf import FPDF
 from datetime import datetime
-import os
+from fpdf import FPDF
 from PIL import Image
+import os
 import io
 
-st.set_page_config(page_title="Data Potongan Gaji", layout="centered")
-st.title("===Data Potongan Gaji===")
+st.set_page_config(page_title="Input Potongan Gaji", layout="centered")
+st.title("📝 Form Input Potongan Gaji Karyawan")
 
-karyawan_list = ["Pilih...", "Tambah Karyawan Baru"]
-file_excel = "rekap_potongan.xlsx"
+file_excel = "Data_Potongan.xlsx"
 
-# Bikin file Excel kalo belum ada
+# Buat file Excel + sheet kalau belum ada
 if not os.path.exists(file_excel):
-    pd.DataFrame(columns=[
-        "Waktu", "Nama Kantor", "Nama Karyawan", "Jumlah Hari Kerja",
-        "Potongan Bon Panjar", "Sisa Bon Panjar",
-        "Potongan Kredit Lunak", "Sisa Kredit Lunak", 
-        "Potongan Kecerobohan", "Sisa Kecerobohan",
-        "Bon Prive",
-        "Minus Tunai", "Denda Minus",
-        "Jumlah Hari Karyawan Tidak Masuk Kerja", "Keterangan Tidak Masuk Kerja", "Potongan Tidak Masuk Kerja",
-        "Potongan Lainnya (beri nama/keterangan Potongan)", "Jumlah Uang yang di Potongan Lainnya", "Sisa Potongan Lainnya",
-        "Nama Karyawan Keluar", "Tanggal Karyawan Keluar", 
-        "Nama Karyawan Baru Masuk", "Tanggal Karyawan Baru Masuk", 
-        "File KTP", "File Surat Sakit", "Total Potongan"
-    ]).to_excel(file_excel, index=False)
+    cols = ["Waktu", "Nama Kantor", "Nama Karyawan", "Jumlah Hari Kerja", 
+            "Potongan Bon Panjar", "Sisa Bon Panjar", "Potongan Kredit Lunak", "Sisa Kredit Lunak",
+            "Potongan Kecerobohan", "Sisa Kecerobohan", "Bon Prive", "Minus Tunai", "Denda Minus",
+            "Jumlah Hari Karyawan Tidak Masuk Kerja", "Keterangan Tidak Masuk Kerja", "Potongan Tidak Masuk Kerja",
+            "Potongan Lainnya (beri nama/keterangan Potongan)", "Jumlah Uang yang di Potongan Lainnya", "Sisa Potongan Lainnya",
+            "Nama Karyawan Keluar", "Tanggal Karyawan Keluar", "Nama Karyawan Baru Masuk", "Tanggal Karyawan Baru Masuk",
+            "File KTP", "File Surat Sakit", "Total Potongan"]
+    pd.DataFrame(columns=cols).to_excel(file_excel, index=False)
 
-with st.form("form_potongan"):
-    nama_kantor = st.text_input("Nama Kantor")
+# Fungsi buat masukin gambar ke PDF + auto resize
+def add_file_to_pdf(pdf_obj, uploaded_file, title):
+    if uploaded_file is None:
+        return
+    pdf_obj.add_page()
+    pdf_obj.set_font("Arial", "B", 14)
+    pdf_obj.cell(0, 10, title, 0, 1, "C")
+    pdf_obj.ln(5)
     
-    pilih_karyawan = st.selectbox("Nama Karyawan", karyawan_list)
-    if pilih_karyawan == "Tambah Karyawan Baru":
-        nama_karyawan = st.text_input("Ketik Nama Karyawan Baru")
+    file_bytes = uploaded_file.getvalue()
+    file_ext = uploaded_file.name.split('.')[-1].lower()
+    
+    if file_ext in ['jpg', 'jpeg', 'png']:
+        img = Image.open(io.BytesIO(file_bytes))
+        img_path = f"temp_img_{datetime.now().strftime('%H%M%S%f')}.jpg"
+        img.convert('RGB').save(img_path)
+        
+        img_w, img_h = img.size
+        page_w = 190  # lebar A4 dikurangi margin
+        max_h = 250   # tinggi maksimal
+        
+        # Hitung ratio biar proporsional & ga kepotong
+        ratio = min(page_w / img_w, max_h / img_h)
+        new_w = img_w * ratio
+        new_h = img_h * ratio
+        
+        # Taruh di tengah
+        x = (210 - new_w) / 2
+        
+        pdf_obj.image(img_path, x=x, y=30, w=new_w, h=new_h)
+        os.remove(img_path)
     else:
-        nama_karyawan = st.text_input("Nama Karyawan", value="" if pilih_karyawan=="Pilih..." else pilih_karyawan)
+        pdf_obj.set_font("Arial", "", 11)
+        pdf_obj.cell(0, 10, f"File terlampir: {uploaded_file.name}", 0, 1)
+
+# FORM INPUT
+with st.form("form_potongan"):
+    nama_kantor = st.text_input("Nama Kantor *")
     
-    jumlah_hari_kerja = st.number_input("Jumlah Hari Kerja", min_value=0, step=1)
+    opsi_karyawan = ["Pilih...", "Budi", "Kiki", "Dewi", "Andi", "Sari"] # ganti sesuai karyawan lu
+    nama_karyawan = st.selectbox("Nama Karyawan *", opsi_karyawan)
     
-    st.subheader("Bon Panjar")
-    potongan_bon = st.number_input("Potongan Bon Panjar", min_value=0, step=1000)
-    sisa_bon = st.number_input("Sisa Bon Panjar", min_value=0, step=1000)
+    jumlah_hari_kerja = st.number_input("Jumlah Hari Kerja", min_value=0, value=26)
     
-    st.subheader("Kredit Lunak")
-    potongan_kredit = st.number_input("Potongan Kredit Lunak", min_value=0, step=1000)
-    sisa_kredit = st.number_input("Sisa Kredit Lunak", min_value=0, step=1000)
+    st.subheader("Rincian Potongan")
+    col1, col2 = st.columns(2)
+    with col1:
+        potongan_bon = st.number_input("Potongan Bon Panjar", min_value=0, value=0, step=1000)
+        sisa_bon = st.number_input("Sisa Bon Panjar", min_value=0, value=0, step=1000)
+        potongan_kredit = st.number_input("Potongan Kredit Lunak", min_value=0, value=0, step=1000)
+        sisa_kredit = st.number_input("Sisa Kredit Lunak", min_value=0, value=0, step=1000)
+    with col2:
+        potongan_kecerobohan = st.number_input("Potongan Kecerobohan", min_value=0, value=0, step=1000)
+        sisa_kecerobohan = st.number_input("Sisa Kecerobohan", min_value=0, value=0, step=1000)
+        bon_prive = st.number_input("Bon Prive", min_value=0, value=0, step=1000)
+        minus_tunai = st.number_input("Minus Tunai", min_value=0, value=0, step=1000)
     
-    st.subheader("Kecerobohan")
-    potongan_kecerobohan = st.number_input("Potongan Kecerobohan", min_value=0, step=1000)
-    sisa_kecerobohan = st.number_input("Sisa Kecerobohan", min_value=0, step=1000)
+    denda_minus = st.number_input("Denda Minus", min_value=0, value=0, step=1000)
     
-    st.subheader("Bon Prive")
-    bon_prive = st.number_input("Bon Prive", min_value=0, step=1000)
-    
-    st.subheader("Minus")
-    minus_tunai = st.number_input("Minus Tunai", min_value=0, step=1000)
-    denda_minus = st.number_input("Denda Minus", min_value=0, step=1000)
-    
-    st.subheader("Tidak Masuk Kerja")
-    jumlah_tidak_masuk = st.number_input("Jumlah Hari Karyawan Tidak Masuk Kerja", min_value=0, step=1)
-    keterangan_tidak_masuk = st.text_area("Keterangan Tidak masuk Kerja")
-    potongan_tidak_masuk = st.number_input("Potongan Tidak Masuk Kerja", min_value=0, step=1000)
+    st.subheader("Karyawan Tidak Masuk")
+    jumlah_tidak_masuk = st.number_input("Jumlah Hari Tidak Masuk", min_value=0, value=0)
+    keterangan_tidak_masuk = st.text_input("Keterangan Tidak Masuk Kerja")
+    potongan_tidak_masuk = st.number_input("Potongan Tidak Masuk Kerja", min_value=0, value=0, step=1000)
     
     st.subheader("Potongan Lainnya")
-    nama_potongan_lain = st.text_input("Potongan Lainnya (beri nama/keterangan Potongan)")
-    jumlah_potongan_lain = st.number_input("Jumlah Uang yang di Potongan Lainnya", min_value=0, step=1000)
-    sisa_potongan_lain = st.number_input("Sisa Potongan Lainnya", min_value=0, step=1000)
+    nama_potongan_lain = st.text_input("Nama/Keterangan Potongan Lainnya")
+    jumlah_potongan_lain = st.number_input("Jumlah Uang Potongan Lainnya", min_value=0, value=0, step=1000)
+    sisa_potongan_lain = st.number_input("Sisa Potongan Lainnya", min_value=0, value=0, step=1000)
     
-    st.subheader("Mutasi Karyawan")
+    st.subheader("Karyawan Masuk/Keluar")
     nama_keluar = st.text_input("Nama Karyawan Keluar")
     tgl_keluar = st.date_input("Tanggal Karyawan Keluar")
     nama_baru = st.text_input("Nama Karyawan Baru Masuk")
     tgl_masuk = st.date_input("Tanggal Karyawan Baru Masuk")
     
-    st.subheader("Upload Dokumen")
-    ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg","jpeg","png","pdf"])
-    surat_sakit = st.file_uploader("Upload Surat Keterangan Sakit dari Dokter/Klinik/Puskesmas", type=["jpg","jpeg","png","pdf"])
+    st.subheader("Upload Lampiran")
+    ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg", "jpeg", "png", "pdf"])
+    surat_sakit = st.file_uploader("Upload Surat Keterangan Sakit", type=["jpg", "jpeg", "png", "pdf"])
     
-    st.caption("Keterangan: Sebelum kirim Cek Kembali Data yang anda kirimkan")
-    submit = st.form_submit_button("Simpan Data", type="primary")
+    submit = st.form_submit_button("Simpan Data", use_container_width=True)
 
 if submit:
     if nama_karyawan == "" or nama_kantor == "" or nama_karyawan == "Pilih...":
@@ -124,30 +146,10 @@ if submit:
         df_gabung = pd.concat([df_lama, df_baru], ignore_index=True)
         df_gabung.to_excel(file_excel, index=False)
 
-        st.success("✅ Data berhasil disimpan! Cek kembali sebelum kirim ke atasan")
+        st.success("✅ Data berhasil disimpan!")
         st.write(f"**Nama:** {nama_karyawan} | **Total Potongan:** Rp {total_potongan:,}".replace(",", "."))
 
-        def add_file_to_pdf(pdf_obj, uploaded_file, title):
-            if uploaded_file is None:
-                return
-            pdf_obj.add_page()
-            pdf_obj.set_font("Arial", "B", 14)
-            pdf_obj.cell(0, 10, title, 0, 1, "C")
-            pdf_obj.ln(5)
-            
-            file_bytes = uploaded_file.getvalue()
-            file_ext = uploaded_file.name.split('.')[-1].lower()
-            
-            if file_ext in ['jpg', 'jpeg', 'png']:
-                img = Image.open(io.BytesIO(file_bytes))
-                img_path = f"temp_img_{datetime.now().strftime('%H%M%S%f')}.jpg"
-                img.convert('RGB').save(img_path)
-                pdf_obj.image(img_path, x=10, y=30, w=190)
-                os.remove(img_path)
-            else:
-                pdf_obj.set_font("Arial", "", 11)
-                pdf_obj.cell(0, 10, f"File terlampir: {uploaded_file.name}", 0, 1)
-
+        # Bikin PDF Bukti Lengkap
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -175,6 +177,7 @@ if submit:
         pdf.set_font("Arial", "", 11)
         pdf.cell(0, 7, "TTD HRD:........................", 0, 1)
 
+        # Masukkin gambar ke PDF
         add_file_to_pdf(pdf, ktp_baru, "LAMPIRAN: KTP KARYAWAN BARU")
         add_file_to_pdf(pdf, surat_sakit, "LAMPIRAN: SURAT KETERANGAN SAKIT")
 
@@ -191,73 +194,58 @@ if submit:
             mime="application/pdf",
             use_container_width=True
         )
+        
+        # PETUNJUK BUAT KARYAWAN CABANG
+        st.divider()
+        st.warning("⚠️ LANGKAH TERAKHIR UNTUK KARYAWAN CABANG")
+        st.info("1. Klik tombol 'Download Bukti PDF Lengkap' di atas\n2. Kirim file PDF tersebut ke HRD Pusat via WhatsApp/Email\n3. File ini sudah berisi data + lampiran KTP/Surat Sakit")
+        st.caption("HRD Pusat hanya menerima file PDF ini. Tidak perlu kirim foto terpisah.")
 
 st.divider()
-st.subheader("📁 Download Semua Data Jadi 1 File")
+st.subheader("📊 Download Data untuk HRD Pusat")
 
-if os.path.exists(file_excel):
-    df_rekap = pd.read_excel(file_excel)
-    
-    col1, col2 = st.columns(2)
-    
-    # FIX: PAKE BytesIO BIAR GA ERROR
-    with col1:
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_rekap.to_excel(writer, index=False, sheet_name='Rekap')
-        excel_bytes = output.getvalue()
-        
-        st.download_button(
-            label="📊 Download Excel Lengkap",
-            data=excel_bytes,
-            file_name=f"Rekap_Potongan_Gaji_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-    
-    with col2:
+df = pd.read_excel(file_excel)
+
+col1, col2 = st.columns(2)
+with col1:
+    st.download_button(
+        label="📥 Download Excel Lengkap",
+        data=df.to_csv(index=False).encode('utf-8'),
+        file_name=f"Rekap_Potongan_{datetime.now().strftime('%Y%m')}.csv",
+        mime="text/csv"
+    )
+
+with col2:
+    if st.button("📄 Generate PDF Rekap"):
         pdf_rekap = FPDF()
         pdf_rekap.add_page()
         pdf_rekap.set_font("Arial", "B", 16)
-        pdf_rekap.cell(0, 10, "REKAP POTONGAN GAJI", 0, 1, "C")
-        pdf_rekap.set_font("Arial", "", 10)
-        pdf_rekap.cell(0, 7, f"Tanggal Cetak: {datetime.now().strftime('%d-%m-%Y %H:%M')}", 0, 1)
-        pdf_rekap.cell(0, 7, f"Total Karyawan: {len(df_rekap)} orang", 0, 1)
+        pdf_rekap.cell(0, 10, "REKAPITULASI POTONGAN GAJI", 0, 1, "C")
+        pdf_rekap.ln(5)
+        pdf_rekap.set_font("Arial", "", 11)
+        pdf_rekap.cell(0, 7, f"Periode: {datetime.now().strftime('%B %Y')}", 0, 1)
         pdf_rekap.ln(5)
         
         total_semua = 0
-        for i, row in df_rekap.iterrows():
-            pdf_rekap.set_font("Arial", "B", 11)
-            pdf_rekap.cell(0, 7, f"{i+1}. {row['Nama Karyawan']} - {row['Nama Kantor']}", 0, 1)
-            pdf_rekap.set_font("Arial", "", 10)
-            pdf_rekap.cell(0, 6, f"   Hari Kerja: {row['Jumlah Hari Kerja']} hari", 0, 1)
-            pdf_rekap.cell(0, 6, f"   Bon Panjar: Rp {row['Potongan Bon Panjar']:,} | Sisa: Rp {row['Sisa Bon Panjar']:,}".replace(",", "."), 0, 1)
-            pdf_rekap.cell(0, 6, f"   Kredit Lunak: Rp {row['Potongan Kredit Lunak']:,} | Sisa: Rp {row['Sisa Kredit Lunak']:,}".replace(",", "."), 0, 1)
-            pdf_rekap.cell(0, 6, f"   Kecerobohan: Rp {row['Potongan Kecerobohan']:,} | Sisa: Rp {row['Sisa Kecerobohan']:,}".replace(",", "."), 0, 1)
-            pdf_rekap.cell(0, 6, f"   Bon Prive: Rp {row['Bon Prive']:,}".replace(",", "."), 0, 1)
-            pdf_rekap.cell(0, 6, f"   Denda Minus: Rp {row['Denda Minus']:,}".replace(",", "."), 0, 1)
-            pdf_rekap.cell(0, 6, f"   Tidak Masuk: {row['Jumlah Hari Karyawan Tidak Masuk Kerja']} hari - Rp {row['Potongan Tidak Masuk Kerja']:,}".replace(",", "."), 0, 1)
-            pdf_rekap.set_font("Arial", "B", 11)
-            pdf_rekap.cell(0, 7, f"   >>> TOTAL POTONGAN: Rp {row['Total Potongan']:,}".replace(",", "."), 0, 1)
-            pdf_rekap.ln(3)
+        for i, row in df.iterrows():
+            pdf_rekap.cell(0, 6, f"{i+1}. {row['Nama Karyawan']} - {row['Nama Kantor']}", 0, 1)
+            pdf_rekap.cell(0, 6, f"   Total Potongan: Rp {row['Total Potongan']:,}".replace(",", "."), 0, 1)
+            pdf_rekap.ln(2)
             total_semua += row['Total Potongan']
         
         pdf_rekap.ln(5)
         pdf_rekap.set_font("Arial", "B", 12)
-        pdf_rekap.cell(0, 8, f"GRAND TOTAL SEMUA KARYAWAN: Rp {total_semua:,}".replace(",", "."), 0, 1, "C")
+        pdf_rekap.cell(0, 7, f"GRAND TOTAL: Rp {total_semua:,}".replace(",", "."), 0, 1)
         
-        pdf_rekap_file = f"rekap_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.pdf"
-        pdf_rekap.output(pdf_rekap_file)
-        with open(pdf_rekap_file, "rb") as f:
-            pdf_rekap_bytes = f.read()
-        os.remove(pdf_rekap_file)
-        
-        st.download_button(
-            label="📄 Download PDF Rekap",
-            data=pdf_rekap_bytes,
-            file_name=f"Rekap_Semua_Karyawan_{datetime.now().strftime('%Y%m%d')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-else:
-    st.info("Belum ada data masuk. Isi & Simpan Data dulu")
+        pdf_file_rekap = f"rekap_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+        pdf_rekap.output(pdf_file_rekap)
+        with open(pdf_file_rekap, "rb") as f:
+            st.download_button(
+                label="Download PDF Rekap",
+                data=f.read(),
+                file_name=f"Rekap_Potongan_{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf"
+            )
+        os.remove(pdf_file_rekap)
+
+st.dataframe(df, use_container_width=True)
