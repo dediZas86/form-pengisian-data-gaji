@@ -22,7 +22,6 @@ if not os.path.exists(file_excel):
             "File KTP", "File Surat Sakit", "Total Potongan"]
     pd.DataFrame(columns=cols).to_excel(file_excel, index=False)
 
-# Fungsi buat masukin gambar ke PDF + auto resize
 def add_file_to_pdf(pdf_obj, uploaded_file, title):
     if uploaded_file is None:
         return
@@ -40,15 +39,13 @@ def add_file_to_pdf(pdf_obj, uploaded_file, title):
         img.convert('RGB').save(img_path)
         
         img_w, img_h = img.size
-        page_w = 190  # lebar A4 dikurangi margin
-        max_h = 250   # tinggi maksimal
+        page_w = 190
+        max_h = 250
         
-        # Hitung ratio biar proporsional & ga kepotong
         ratio = min(page_w / img_w, max_h / img_h)
         new_w = img_w * ratio
         new_h = img_h * ratio
         
-        # Taruh di tengah
         x = (210 - new_w) / 2
         
         pdf_obj.image(img_path, x=x, y=30, w=new_w, h=new_h)
@@ -57,45 +54,45 @@ def add_file_to_pdf(pdf_obj, uploaded_file, title):
         pdf_obj.set_font("Arial", "", 11)
         pdf_obj.cell(0, 10, f"File terlampir: {uploaded_file.name}", 0, 1)
 
-# FORM INPUT
 with st.form("form_potongan"):
     nama_kantor = st.text_input("Nama Kantor *")
     
-    opsi_karyawan = ["Pilih...", "Budi", "Kiki", "Dewi", "Andi", "Sari"] # ganti sesuai karyawan lu
-    nama_karyawan = st.selectbox("Nama Karyawan *", opsi_karyawan)
+    # UDAH GANTI JADI INPUT KETIK
+    nama_karyawan = st.text_input("Nama Karyawan *")
     
-    jumlah_hari_kerja = st.number_input("Jumlah Hari Kerja", min_value=0, value=26)
+    # UDAH GANTI JADI KOSONG value=None
+    jumlah_hari_kerja = st.number_input("Jumlah Hari Kerja", min_value=0, value=None, placeholder="Kosongkan jika tidak ada")
     
     st.subheader("Rincian Potongan")
     col1, col2 = st.columns(2)
     with col1:
-        potongan_bon = st.number_input("Potongan Bon Panjar", min_value=0, value=0, step=1000)
-        sisa_bon = st.number_input("Sisa Bon Panjar", min_value=0, value=0, step=1000)
-        potongan_kredit = st.number_input("Potongan Kredit Lunak", min_value=0, value=0, step=1000)
-        sisa_kredit = st.number_input("Sisa Kredit Lunak", min_value=0, value=0, step=1000)
+        potongan_bon = st.number_input("Potongan Bon Panjar", min_value=0, value=None, placeholder="0")
+        sisa_bon = st.number_input("Sisa Bon Panjar", min_value=0, value=None, placeholder="0")
+        potongan_kredit = st.number_input("Potongan Kredit Lunak", min_value=0, value=None, placeholder="0")
+        sisa_kredit = st.number_input("Sisa Kredit Lunak", min_value=0, value=None, placeholder="0")
     with col2:
-        potongan_kecerobohan = st.number_input("Potongan Kecerobohan", min_value=0, value=0, step=1000)
-        sisa_kecerobohan = st.number_input("Sisa Kecerobohan", min_value=0, value=0, step=1000)
-        bon_prive = st.number_input("Bon Prive", min_value=0, value=0, step=1000)
-        minus_tunai = st.number_input("Minus Tunai", min_value=0, value=0, step=1000)
+        potongan_kecerobohan = st.number_input("Potongan Kecerobohan", min_value=0, value=None, placeholder="0")
+        sisa_kecerobohan = st.number_input("Sisa Kecerobohan", min_value=0, value=None, placeholder="0")
+        bon_prive = st.number_input("Bon Prive", min_value=0, value=None, placeholder="0")
+        minus_tunai = st.number_input("Minus Tunai", min_value=0, value=None, placeholder="0")
     
-    denda_minus = st.number_input("Denda Minus", min_value=0, value=0, step=1000)
+    denda_minus = st.number_input("Denda Minus", min_value=0, value=None, placeholder="0")
     
     st.subheader("Karyawan Tidak Masuk")
-    jumlah_tidak_masuk = st.number_input("Jumlah Hari Tidak Masuk", min_value=0, value=0)
+    jumlah_tidak_masuk = st.number_input("Jumlah Hari Tidak Masuk", min_value=0, value=None, placeholder="0")
     keterangan_tidak_masuk = st.text_input("Keterangan Tidak Masuk Kerja")
-    potongan_tidak_masuk = st.number_input("Potongan Tidak Masuk Kerja", min_value=0, value=0, step=1000)
+    potongan_tidak_masuk = st.number_input("Potongan Tidak Masuk Kerja", min_value=0, value=None, placeholder="0")
     
     st.subheader("Potongan Lainnya")
     nama_potongan_lain = st.text_input("Nama/Keterangan Potongan Lainnya")
-    jumlah_potongan_lain = st.number_input("Jumlah Uang Potongan Lainnya", min_value=0, value=0, step=1000)
-    sisa_potongan_lain = st.number_input("Sisa Potongan Lainnya", min_value=0, value=0, step=1000)
+    jumlah_potongan_lain = st.number_input("Jumlah Uang Potongan Lainnya", min_value=0, value=None, placeholder="0")
+    sisa_potongan_lain = st.number_input("Sisa Potongan Lainnya", min_value=0, value=None, placeholder="0")
     
     st.subheader("Karyawan Masuk/Keluar")
     nama_keluar = st.text_input("Nama Karyawan Keluar")
-    tgl_keluar = st.date_input("Tanggal Karyawan Keluar")
+    tgl_keluar = st.date_input("Tanggal Karyawan Keluar", value=None)
     nama_baru = st.text_input("Nama Karyawan Baru Masuk")
-    tgl_masuk = st.date_input("Tanggal Karyawan Baru Masuk")
+    tgl_masuk = st.date_input("Tanggal Karyawan Baru Masuk", value=None)
     
     st.subheader("Upload Lampiran")
     ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg", "jpeg", "png", "pdf"])
@@ -104,9 +101,25 @@ with st.form("form_potongan"):
     submit = st.form_submit_button("Simpan Data", use_container_width=True)
 
 if submit:
-    if nama_karyawan == "" or nama_kantor == "" or nama_karyawan == "Pilih...":
+    if nama_karyawan == "" or nama_kantor == "":
         st.error("Nama Kantor & Nama Karyawan wajib diisi!")
     else:
+        # Kalo kosong diubah jadi 0 biar ga error pas ngitung total
+        jumlah_hari_kerja = jumlah_hari_kerja or 0
+        potongan_bon = potongan_bon or 0
+        sisa_bon = sisa_bon or 0
+        potongan_kredit = potongan_kredit or 0
+        sisa_kredit = sisa_kredit or 0
+        potongan_kecerobohan = potongan_kecerobohan or 0
+        sisa_kecerobohan = sisa_kecerobohan or 0
+        bon_prive = bon_prive or 0
+        minus_tunai = minus_tunai or 0
+        denda_minus = denda_minus or 0
+        jumlah_tidak_masuk = jumlah_tidak_masuk or 0
+        potongan_tidak_masuk = potongan_tidak_masuk or 0
+        jumlah_potongan_lain = jumlah_potongan_lain or 0
+        sisa_potongan_lain = sisa_potongan_lain or 0
+        
         nama_ktp = ktp_baru.name if ktp_baru else "-"
         nama_surat = surat_sakit.name if surat_sakit else "-"
         
@@ -149,7 +162,6 @@ if submit:
         st.success("✅ Data berhasil disimpan!")
         st.write(f"**Nama:** {nama_karyawan} | **Total Potongan:** Rp {total_potongan:,}".replace(",", "."))
 
-        # Bikin PDF Bukti Lengkap
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", "B", 16)
@@ -177,7 +189,6 @@ if submit:
         pdf.set_font("Arial", "", 11)
         pdf.cell(0, 7, "TTD HRD:........................", 0, 1)
 
-        # Masukkin gambar ke PDF
         add_file_to_pdf(pdf, ktp_baru, "LAMPIRAN: KTP KARYAWAN BARU")
         add_file_to_pdf(pdf, surat_sakit, "LAMPIRAN: SURAT KETERANGAN SAKIT")
 
@@ -195,11 +206,9 @@ if submit:
             use_container_width=True
         )
         
-        # PETUNJUK BUAT KARYAWAN CABANG
         st.divider()
         st.warning("⚠️ LANGKAH TERAKHIR UNTUK KARYAWAN CABANG")
         st.info("1. Klik tombol 'Download Bukti PDF Lengkap' di atas\n2. Kirim file PDF tersebut ke HRD Pusat via WhatsApp/Email\n3. File ini sudah berisi data + lampiran KTP/Surat Sakit")
-        st.caption("HRD Pusat hanya menerima file PDF ini. Tidak perlu kirim foto terpisah.")
 
 st.divider()
 st.subheader("📊 Download Data untuk HRD Pusat")
