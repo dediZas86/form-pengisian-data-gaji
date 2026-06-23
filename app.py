@@ -11,7 +11,6 @@ st.title("📝 Form Input Potongan Gaji Karyawan")
 
 file_excel = "Data_Potongan.xlsx"
 
-# Buat file Excel + sheet kalau belum ada
 if not os.path.exists(file_excel):
     cols = ["Waktu", "Nama Kantor", "Nama Karyawan", "Jumlah Hari Kerja", 
             "Potongan Bon Panjar", "Sisa Bon Panjar", "Potongan Kredit Lunak", "Sisa Kredit Lunak",
@@ -54,39 +53,44 @@ def add_file_to_pdf(pdf_obj, uploaded_file, title):
         pdf_obj.set_font("Arial", "", 11)
         pdf_obj.cell(0, 10, f"File terlampir: {uploaded_file.name}", 0, 1)
 
+# Fungsi buat convert text jadi angka, kalo kosong = 0
+def to_int(val):
+    try:
+        return int(val) if val.strip() != "" else 0
+    except:
+        return 0
+
 with st.form("form_potongan"):
     nama_kantor = st.text_input("Nama Kantor *")
-    
-    # UDAH GANTI JADI INPUT KETIK
     nama_karyawan = st.text_input("Nama Karyawan *")
     
-    # UDAH GANTI JADI KOSONG value=None
-    jumlah_hari_kerja = st.number_input("Jumlah Hari Kerja", min_value=0, value=None, placeholder="Kosongkan jika tidak ada")
+    # PAKE TEXT_INPUT BIAR BENER2 KOSONG
+    jumlah_hari_kerja = st.text_input("Jumlah Hari Kerja", placeholder="Masukkan angka")
     
     st.subheader("Rincian Potongan")
     col1, col2 = st.columns(2)
     with col1:
-        potongan_bon = st.number_input("Potongan Bon Panjar", min_value=0, value=None, placeholder="0")
-        sisa_bon = st.number_input("Sisa Bon Panjar", min_value=0, value=None, placeholder="0")
-        potongan_kredit = st.number_input("Potongan Kredit Lunak", min_value=0, value=None, placeholder="0")
-        sisa_kredit = st.number_input("Sisa Kredit Lunak", min_value=0, value=None, placeholder="0")
+        potongan_bon = st.text_input("Potongan Bon Panjar", placeholder="Masukkan angka")
+        sisa_bon = st.text_input("Sisa Bon Panjar", placeholder="Masukkan angka")
+        potongan_kredit = st.text_input("Potongan Kredit Lunak", placeholder="Masukkan angka")
+        sisa_kredit = st.text_input("Sisa Kredit Lunak", placeholder="Masukkan angka")
     with col2:
-        potongan_kecerobohan = st.number_input("Potongan Kecerobohan", min_value=0, value=None, placeholder="0")
-        sisa_kecerobohan = st.number_input("Sisa Kecerobohan", min_value=0, value=None, placeholder="0")
-        bon_prive = st.number_input("Bon Prive", min_value=0, value=None, placeholder="0")
-        minus_tunai = st.number_input("Minus Tunai", min_value=0, value=None, placeholder="0")
+        potongan_kecerobohan = st.text_input("Potongan Kecerobohan", placeholder="Masukkan angka")
+        sisa_kecerobohan = st.text_input("Sisa Kecerobohan", placeholder="Masukkan angka")
+        bon_prive = st.text_input("Bon Prive", placeholder="Masukkan angka")
+        minus_tunai = st.text_input("Minus Tunai", placeholder="Masukkan angka")
     
-    denda_minus = st.number_input("Denda Minus", min_value=0, value=None, placeholder="0")
+    denda_minus = st.text_input("Denda Minus", placeholder="Masukkan angka")
     
     st.subheader("Karyawan Tidak Masuk")
-    jumlah_tidak_masuk = st.number_input("Jumlah Hari Tidak Masuk", min_value=0, value=None, placeholder="0")
+    jumlah_tidak_masuk = st.text_input("Jumlah Hari Tidak Masuk", placeholder="Masukkan angka")
     keterangan_tidak_masuk = st.text_input("Keterangan Tidak Masuk Kerja")
-    potongan_tidak_masuk = st.number_input("Potongan Tidak Masuk Kerja", min_value=0, value=None, placeholder="0")
+    potongan_tidak_masuk = st.text_input("Potongan Tidak Masuk Kerja", placeholder="Masukkan angka")
     
     st.subheader("Potongan Lainnya")
     nama_potongan_lain = st.text_input("Nama/Keterangan Potongan Lainnya")
-    jumlah_potongan_lain = st.number_input("Jumlah Uang Potongan Lainnya", min_value=0, value=None, placeholder="0")
-    sisa_potongan_lain = st.number_input("Sisa Potongan Lainnya", min_value=0, value=None, placeholder="0")
+    jumlah_potongan_lain = st.text_input("Jumlah Uang Potongan Lainnya", placeholder="Masukkan angka")
+    sisa_potongan_lain = st.text_input("Sisa Potongan Lainnya", placeholder="Masukkan angka")
     
     st.subheader("Karyawan Masuk/Keluar")
     nama_keluar = st.text_input("Nama Karyawan Keluar")
@@ -104,21 +108,21 @@ if submit:
     if nama_karyawan == "" or nama_kantor == "":
         st.error("Nama Kantor & Nama Karyawan wajib diisi!")
     else:
-        # Kalo kosong diubah jadi 0 biar ga error pas ngitung total
-        jumlah_hari_kerja = jumlah_hari_kerja or 0
-        potongan_bon = potongan_bon or 0
-        sisa_bon = sisa_bon or 0
-        potongan_kredit = potongan_kredit or 0
-        sisa_kredit = sisa_kredit or 0
-        potongan_kecerobohan = potongan_kecerobohan or 0
-        sisa_kecerobohan = sisa_kecerobohan or 0
-        bon_prive = bon_prive or 0
-        minus_tunai = minus_tunai or 0
-        denda_minus = denda_minus or 0
-        jumlah_tidak_masuk = jumlah_tidak_masuk or 0
-        potongan_tidak_masuk = potongan_tidak_masuk or 0
-        jumlah_potongan_lain = jumlah_potongan_lain or 0
-        sisa_potongan_lain = sisa_potongan_lain or 0
+        # Convert semua jadi angka
+        jumlah_hari_kerja = to_int(jumlah_hari_kerja)
+        potongan_bon = to_int(potongan_bon)
+        sisa_bon = to_int(sisa_bon)
+        potongan_kredit = to_int(potongan_kredit)
+        sisa_kredit = to_int(sisa_kredit)
+        potongan_kecerobohan = to_int(potongan_kecerobohan)
+        sisa_kecerobohan = to_int(sisa_kecerobohan)
+        bon_prive = to_int(bon_prive)
+        minus_tunai = to_int(minus_tunai)
+        denda_minus = to_int(denda_minus)
+        jumlah_tidak_masuk = to_int(jumlah_tidak_masuk)
+        potongan_tidak_masuk = to_int(potongan_tidak_masuk)
+        jumlah_potongan_lain = to_int(jumlah_potongan_lain)
+        sisa_potongan_lain = to_int(sisa_potongan_lain)
         
         nama_ktp = ktp_baru.name if ktp_baru else "-"
         nama_surat = surat_sakit.name if surat_sakit else "-"
