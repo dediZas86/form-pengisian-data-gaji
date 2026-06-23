@@ -140,7 +140,7 @@ if submit:
         error_found = False
         for nama_field, val in fields.items():
             if to_int(val) == "error":
-                st.error(f"❌ {nama_field}: Harus isi angka aja bang, ga boleh huruf/simbol")
+                st.error(f"❌ {nama_field}: Harus isi angka, jangan huruf/simbol")
                 error_found = True
         
         if error_found:
