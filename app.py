@@ -13,7 +13,7 @@ st.title("📝 Form Input Potongan Gaji Karyawan")
 file_excel = "Data_Potongan.xlsx"
 
 if not os.path.exists(file_excel):
-    cols = ["Waktu", "Nama Kantor", "Nama Karyawan", "Jumlah Hari Kerja", 
+    cols = ["Waktu", "Nama Kantor", "Nama Karyawan", "Jumlah Hari Kerja",
             "Potongan Bon Panjar", "Sisa Bon Panjar", "Potongan Kredit Lunak", "Sisa Kredit Lunak",
             "Potongan Kecerobohan", "Sisa Kecerobohan", "Bon Prive", "Minus Tunai", "Denda Minus",
             "Jumlah Hari Karyawan Tidak Masuk Kerja", "Keterangan Tidak Masuk Kerja", "Potongan Tidak Masuk Kerja",
@@ -29,34 +29,37 @@ def add_file_to_pdf(pdf_obj, uploaded_file, title):
     pdf_obj.set_font("Arial", "B", 14)
     pdf_obj.cell(0, 10, title, 0, 1, "C")
     pdf_obj.ln(5)
-    
+
     file_bytes = uploaded_file.getvalue()
     file_ext = uploaded_file.name.split('.')[-1].lower()
-    
+
     if file_ext in ['jpg', 'jpeg', 'png']:
         img = Image.open(io.BytesIO(file_bytes))
         img_path = f"temp_img_{datetime.now().strftime('%H%M%S%f')}.jpg"
         img.convert('RGB').save(img_path)
-        
+
         img_w, img_h = img.size
         page_w = 190
         max_h = 250
-        
+
         ratio = min(page_w / img_w, max_h / img_h)
         new_w = img_w * ratio
         new_h = img_h * ratio
-        
+
         x = (210 - new_w) / 2
-        
+
         pdf_obj.image(img_path, x=x, y=30, w=new_w, h=new_h)
         os.remove(img_path)
     else:
         pdf_obj.set_font("Arial", "", 11)
         pdf_obj.cell(0, 10, f"File terlampir: {uploaded_file.name}", 0, 1)
 
-# KOMPONEN INPUT ANGKA AUTO TITIK
+# KOMPONEN INPUT ANGKA AUTO TITIK - PINDAH KELUAR FORM
 def angka_input(label, key):
     st.markdown(f"**{label}**")
+    if key not in st.session_state:
+        st.session_state[key] = ""
+
     html_code = f"""
     <script>
     function formatRupiah(angka) {{
@@ -64,25 +67,27 @@ def angka_input(label, key):
         let sisa = number_string.length % 3;
         let rupiah = number_string.substr(0, sisa);
         let ribuan = number_string.substr(sisa).match(/\\d{{3}}/g);
-
         if (ribuan) {{
             let separator = sisa? '.' : '';
             rupiah += separator + ribuan.join('.');
         }}
         return rupiah;
     }}
-
-    function updateValue(key, val) {{
+    let input = document.getElementById('{key}');
+    input.value = formatRupiah('{st.session_state[key]}');
+    function updateValue(val) {{
         const cleanVal = val.replace(/\\./g, '');
-        window.parent.postMessage({{type: 'streamlit:setComponentValue', key: key, value: cleanVal}}, '*');
+        window.parent.postMessage({{type: 'streamlit:setComponentValue', key: '{key}', value: cleanVal}}, '*');
     }}
     </script>
-    <input type="text" id="{key}" placeholder="Masukkan angka"
-           oninput="this.value = formatRupiah(this.value); updateValue('{key}', this.value)"
-           style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:16px;">
+    <input type="text" id="{key}" placeholder="Masukkan angka" value="{st.session_state[key]}"
+           oninput="this.value = formatRupiah(this.value); updateValue(this.value)"
+           style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; font-size:16px; margin-bottom:15px;">
     """
-    val = components.html(html_code, height=50, key=key)
-    return val if val else ""
+    val = components.html(html_code, height=55, key=key+"_comp")
+    if val is not None:
+        st.session_state[key] = val
+    return st.session_state[key]
 
 def to_int(val):
     if val is None or val.strip() == "":
@@ -92,63 +97,62 @@ def to_int(val):
         return "error"
     return int(val_clean)
 
-with st.form("form_potongan"):
-    nama_kantor = st.text_input("Nama Kantor *")
-    nama_karyawan = st.text_input("Nama Karyawan *")
-    
-    jumlah_hari_kerja = angka_input("Jumlah Hari Kerja", "hari_kerja")
-    
-    st.subheader("Rincian Potongan")
-    col1, col2 = st.columns(2)
-    with col1:
-        potongan_bon = angka_input("Potongan Bon Panjar", "pot_bon")
-        sisa_bon = angka_input("Sisa Bon Panjar", "sisa_bon")
-        potongan_kredit = angka_input("Potongan Kredit Lunak", "pot_kredit")
-        sisa_kredit = angka_input("Sisa Kredit Lunak", "sisa_kredit")
-    with col2:
-        potongan_kecerobohan = angka_input("Potongan Kecerobohan", "pot_kecerobohan")
-        sisa_kecerobohan = angka_input("Sisa Kecerobohan", "sisa_kecerobohan")
-        bon_prive = angka_input("Bon Prive", "bon_prive")
-        minus_tunai = angka_input("Minus Tunai", "minus_tunai")
-    
-    denda_minus = angka_input("Denda Minus", "denda_minus")
-    
-    st.subheader("Karyawan Tidak Masuk")
-    jumlah_tidak_masuk = angka_input("Jumlah Hari Tidak Masuk", "jml_tidak_masuk")
-    keterangan_tidak_masuk = st.text_input("Keterangan Tidak Masuk Kerja")
-    potongan_tidak_masuk = angka_input("Potongan Tidak Masuk Kerja", "pot_tidak_masuk")
-    
-    st.subheader("Potongan Lainnya")
-    nama_potongan_lain = st.text_input("Nama/Keterangan Potongan Lainnya")
-    jumlah_potongan_lain = angka_input("Jumlah Uang Potongan Lainnya", "jml_lain")
-    sisa_potongan_lain = angka_input("Sisa Potongan Lainnya", "sisa_lain")
-    
-    st.subheader("Karyawan Masuk/Keluar")
-    nama_keluar = st.text_input("Nama Karyawan Keluar")
-    # TANGGAL KOSONG DARI AWAL
-    tgl_keluar = st.date_input("Tanggal Karyawan Keluar *", value=None)
-    nama_baru = st.text_input("Nama Karyawan Baru Masuk")
-    tgl_masuk = st.date_input("Tanggal Karyawan Baru Masuk *", value=None)
-    
-    st.subheader("Upload Lampiran")
-    ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg", "jpeg", "png", "pdf"])
-    surat_sakit = st.file_uploader("Upload Surat Keterangan Sakit", type=["jpg", "jpeg", "png", "pdf"])
-    
+# INPUT DILUAR FORM BIAR GA ERROR
+nama_kantor = st.text_input("Nama Kantor *")
+nama_karyawan = st.text_input("Nama Karyawan *")
+
+jumlah_hari_kerja = angka_input("Jumlah Hari Kerja", "hari_kerja")
+
+st.subheader("Rincian Potongan")
+col1, col2 = st.columns(2)
+with col1:
+    potongan_bon = angka_input("Potongan Bon Panjar", "pot_bon")
+    sisa_bon = angka_input("Sisa Bon Panjar", "sisa_bon")
+    potongan_kredit = angka_input("Potongan Kredit Lunak", "pot_kredit")
+    sisa_kredit = angka_input("Sisa Kredit Lunak", "sisa_kredit")
+with col2:
+    potongan_kecerobohan = angka_input("Potongan Kecerobohan", "pot_kecerobohan")
+    sisa_kecerobohan = angka_input("Sisa Kecerobohan", "sisa_kecerobohan")
+    bon_prive = angka_input("Bon Prive", "bon_prive")
+    minus_tunai = angka_input("Minus Tunai", "minus_tunai")
+
+denda_minus = angka_input("Denda Minus", "denda_minus")
+
+st.subheader("Karyawan Tidak Masuk")
+jumlah_tidak_masuk = angka_input("Jumlah Hari Tidak Masuk", "jml_tidak_masuk")
+keterangan_tidak_masuk = st.text_input("Keterangan Tidak Masuk Kerja")
+potongan_tidak_masuk = angka_input("Potongan Tidak Masuk Kerja", "pot_tidak_masuk")
+
+st.subheader("Potongan Lainnya")
+nama_potongan_lain = st.text_input("Nama/Keterangan Potongan Lainnya")
+jumlah_potongan_lain = angka_input("Jumlah Uang Potongan Lainnya", "jml_lain")
+sisa_potongan_lain = angka_input("Sisa Potongan Lainnya", "sisa_lain")
+
+st.subheader("Karyawan Masuk/Keluar")
+nama_keluar = st.text_input("Nama Karyawan Keluar")
+tgl_keluar = st.date_input("Tanggal Karyawan Keluar *", value=None)
+nama_baru = st.text_input("Nama Karyawan Baru Masuk")
+tgl_masuk = st.date_input("Tanggal Karyawan Baru Masuk *", value=None)
+
+st.subheader("Upload Lampiran")
+ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg", "jpeg", "png", "pdf"])
+surat_sakit = st.file_uploader("Upload Surat Keterangan Sakit", type=["jpg", "jpeg", "png", "pdf"])
+
+# BARU FORM BUAT TOMBOL SUBMIT DOANG
+with st.form("form_submit"):
     submit = st.form_submit_button("Simpan Data", use_container_width=True)
 
 if submit:
     error_list = []
-    
+
     if nama_karyawan == "" or nama_kantor == "":
         error_list.append("Nama Kantor & Nama Karyawan wajib diisi!")
-    
-    # Validasi tanggal wajib isi
+
     if tgl_keluar is None:
         error_list.append("Tanggal Karyawan Keluar wajib dipilih!")
     if tgl_masuk is None:
         error_list.append("Tanggal Karyawan Baru Masuk wajib dipilih!")
-    
-    # Validasi angka
+
     fields = {
         "Jumlah Hari Kerja": jumlah_hari_kerja,
         "Potongan Bon Panjar": potongan_bon,
@@ -165,17 +169,16 @@ if submit:
         "Jumlah Uang Potongan Lainnya": jumlah_potongan_lain,
         "Sisa Potongan Lainnya": sisa_potongan_lain
     }
-    
+
     for nama_field, val in fields.items():
         if to_int(val) == "error":
             error_list.append(f"{nama_field}: Harus isi angka aja bang")
-    
+
     if error_list:
         for err in error_list:
             st.error(f"❌ {err}")
         st.stop()
-    
-    # Convert semua jadi int
+
     jumlah_hari_kerja = to_int(jumlah_hari_kerja)
     potongan_bon = to_int(potongan_bon)
     sisa_bon = to_int(sisa_bon)
@@ -190,12 +193,12 @@ if submit:
     potongan_tidak_masuk = to_int(potongan_tidak_masuk)
     jumlah_potongan_lain = to_int(jumlah_potongan_lain)
     sisa_potongan_lain = to_int(sisa_potongan_lain)
-    
+
     nama_ktp = ktp_baru.name if ktp_baru else "-"
     nama_surat = surat_sakit.name if surat_sakit else "-"
-    
+
     total_potongan = potongan_bon + potongan_kredit + potongan_kecerobohan + bon_prive + denda_minus + potongan_tidak_masuk + jumlah_potongan_lain
-    
+
     data_baru = {
         "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "Nama Kantor": nama_kantor,
@@ -224,7 +227,7 @@ if submit:
         "File Surat Sakit": nama_surat,
         "Total Potongan": total_potongan
     }
-    
+
     df_lama = pd.read_excel(file_excel)
     df_baru = pd.DataFrame([data_baru])
     df_gabung = pd.concat([df_lama, df_baru], ignore_index=True)
@@ -277,10 +280,6 @@ if submit:
         mime="application/pdf",
         use_container_width=True
     )
-    
-    st.divider()
-    st.warning("⚠️ LANGKAH TERAKHIR UNTUK KARYAWAN CABANG")
-    st.info("1. Klik 'Download Bukti PDF Lengkap'\n2. Kirim ke HRD Pusat via WhatsApp/Email")
 
 st.divider()
 st.subheader("📊 Download Data untuk HRD Pusat")
@@ -306,18 +305,18 @@ with col2:
         pdf_rekap.set_font("Arial", "", 11)
         pdf_rekap.cell(0, 7, f"Periode: {datetime.now().strftime('%B %Y')}", 0, 1)
         pdf_rekap.ln(5)
-        
+
         total_semua = 0
         for i, row in df.iterrows():
             pdf_rekap.cell(0, 6, f"{i+1}. {row['Nama Karyawan']} - {row['Nama Kantor']}", 0, 1)
-            pdf_rekap.cell(0, 6, f"   Total Potongan: Rp {row['Total Potongan']:,}".replace(",", "."), 0, 1)
+            pdf_rekap.cell(0, 6, f" Total Potongan: Rp {row['Total Potongan']:,}".replace(",", "."), 0, 1)
             pdf_rekap.ln(2)
             total_semua += row['Total Potongan']
-        
+
         pdf_rekap.ln(5)
         pdf_rekap.set_font("Arial", "B", 12)
         pdf_rekap.cell(0, 7, f"GRAND TOTAL: Rp {total_semua:,}".replace(",", "."), 0, 1)
-        
+
         pdf_file_rekap = f"rekap_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
         pdf_rekap.output(pdf_file_rekap)
         with open(pdf_file_rekap, "rb") as f:
