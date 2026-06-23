@@ -6,7 +6,7 @@ from PIL import Image
 import os
 import io
 
-st.set_page_config(page_title="Bukti Potongan PDF", layout="centered")
+st.set_page_config(page_title="Bukti Potongan Gaji", layout="centered")
 st.title("📝 Bukti Potongan Gaji - PDF Only")
 
 if "pot_lain_list" not in st.session_state:
@@ -16,6 +16,11 @@ if "rekap_list" not in st.session_state:
 
 def to_int(val):
     return int(val) if val is not None else 0
+
+def format_tanggal(dt):
+    if dt is None:
+        return "-"
+    return dt.strftime('%d-%m-%Y')
 
 def add_file_to_pdf_from_bytes(pdf_obj, file_bytes, file_name, title):
     if file_bytes is None:
@@ -59,10 +64,20 @@ def generate_pdf_bukti(data):
     pdf.cell(0, 7, f"Nama Karyawan: {data['karyawan']}", 0, 1)
     pdf.cell(0, 7, f"Jumlah Hari Kerja: {data['hari_kerja']} hari", 0, 1)
     
-    if data.get('tgl_keluar') or data.get('tgl_masuk'):
-        tgl_k = data['tgl_keluar'].strftime('%Y-%m-%d') if data.get('tgl_keluar') else "-"
-        tgl_m = data['tgl_masuk'].strftime('%Y-%m-%d') if data.get('tgl_masuk') else "-"
-        pdf.cell(0, 7, f"Tgl Keluar: {tgl_k} | Tgl Masuk: {tgl_m}", 0, 1)
+    # Tampilkan karyawan keluar/masuk
+    nama_keluar = data.get('nama_keluar', '').strip()
+    nama_baru = data.get('nama_baru', '').strip()
+    tgl_keluar = data.get('tgl_keluar')
+    tgl_masuk = data.get('tgl_masuk')
+    
+    if nama_keluar or nama_baru:
+        line = ""
+        if nama_keluar and tgl_keluar:
+            line += f"Karyawan Keluar: {nama_keluar} - {format_tanggal(tgl_keluar)}"
+        if nama_baru and tgl_masuk:
+            if line: line += " | "
+            line += f"Karyawan Baru: {nama_baru} - {format_tanggal(tgl_masuk)}"
+        pdf.cell(0, 7, line, 0, 1)
     pdf.ln(5)
     
     rincian = data['rincian']
@@ -107,7 +122,7 @@ def generate_pdf_bukti(data):
     pdf.set_font("Arial", "I", 10)
     pdf.cell(0, 6, "Mohon karyawan mengirim file PDF ini via WhatsApp ke Bagian Pengurus PUSAF", 0, 1, "C")
     
-    # Gambar di akhir PDF bukti
+    # Gambar di akhir
     add_file_to_pdf_from_bytes(pdf, data.get('ktp_bytes'), data.get('ktp_name'), "LAMPIRAN: KTP KARYAWAN BARU")
     add_file_to_pdf_from_bytes(pdf, data.get('surat_bytes'), data.get('surat_name'), "LAMPIRAN: SURAT KETERANGAN SAKIT")
     
@@ -187,7 +202,7 @@ if submit:
         st.error("❌ Nama Kantor, Nama Karyawan & Jumlah Hari Kerja wajib diisi!")
         st.stop()
     
-    # Simpan file jadi bytes biar ga ilang
+    # Simpan file jadi bytes
     ktp_bytes = ktp_baru.getvalue() if ktp_baru else None
     ktp_name = ktp_baru.name if ktp_baru else None
     
@@ -217,11 +232,13 @@ if submit:
         detail_pot_lain.append({"nama": pot["nama"], "jumlah": to_int(pot["jumlah"]), "sisa": to_int(pot["sisa"])})
     
     data_bukti = {
-        "tanggal": datetime.now().strftime('%Y-%m-%d %H:%M'),
+        "tanggal": datetime.now().strftime('%d-%m-%Y %H:%M'),  # FORMAT TANGGAL UDAH GANTI
         "kantor": nama_kantor,
         "karyawan": nama_karyawan,
         "hari_kerja": jumlah_hari_kerja,
+        "nama_keluar": nama_keluar,
         "tgl_keluar": tgl_keluar,
+        "nama_baru": nama_baru,
         "tgl_masuk": tgl_masuk,
         "ktp_bytes": ktp_bytes, "ktp_name": ktp_name,
         "surat_bytes": surat_bytes, "surat_name": surat_name,
@@ -250,7 +267,7 @@ if submit:
     st.download_button(
         label="📄 Download PDF Bukti",
         data=pdf_bytes,
-        file_name=f"Bukti_{nama_karyawan}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf",
+        file_name=f"Bukti_{nama_karyawan}_{datetime.now().strftime('%d%m%Y%H%M%S')}.pdf",
         mime="application/pdf",
         use_container_width=True
     )
@@ -275,6 +292,21 @@ if st.session_state.rekap_list:
             pdf_rekap.cell(0, 7, f"Nama Kantor: {data['kantor']}", 0, 1)
             pdf_rekap.cell(0, 7, f"Nama Karyawan: {data['karyawan']}", 0, 1)
             pdf_rekap.cell(0, 7, f"Jumlah Hari Kerja: {data['hari_kerja']} hari", 0, 1)
+            
+            # Tampilkan karyawan keluar/masuk di rekap
+            nama_keluar = data.get('nama_keluar', '').strip()
+            nama_baru = data.get('nama_baru', '').strip()
+            tgl_keluar = data.get('tgl_keluar')
+            tgl_masuk = data.get('tgl_masuk')
+            
+            if nama_keluar or nama_baru:
+                line = ""
+                if nama_keluar and tgl_keluar:
+                    line += f"Karyawan Keluar: {nama_keluar} - {format_tanggal(tgl_keluar)}"
+                if nama_baru and tgl_masuk:
+                    if line: line += " | "
+                    line += f"Karyawan Baru: {nama_baru} - {format_tanggal(tgl_masuk)}"
+                pdf_rekap.cell(0, 7, line, 0, 1)
             pdf_rekap.ln(5)
             
             rincian = data['rincian']
@@ -323,7 +355,7 @@ if st.session_state.rekap_list:
             add_file_to_pdf_from_bytes(pdf_rekap, data.get('ktp_bytes'), data.get('ktp_name'), f"LAMPIRAN KTP - {data['karyawan']}")
             add_file_to_pdf_from_bytes(pdf_rekap, data.get('surat_bytes'), data.get('surat_name'), f"LAMPIRAN SURAT SAKIT - {data['karyawan']}")
         
-        pdf_file = f"rekap_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+        pdf_file = f"rekap_{datetime.now().strftime('%d%m%Y%H%M%S')}.pdf"
         pdf_rekap.output(pdf_file)
         with open(pdf_file, "rb") as f:
             pdf_bytes = f.read()
@@ -332,7 +364,7 @@ if st.session_state.rekap_list:
         st.download_button(
             label="⬇️ Download PDF Rekap Semua Karyawan",
             data=pdf_bytes,
-            file_name=f"Rekap_Semua_{datetime.now().strftime('%Y%m%d')}.pdf",
+            file_name=f"Rekap_Semua_{datetime.now().strftime('%d%m%Y')}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
