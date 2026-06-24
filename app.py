@@ -22,6 +22,19 @@ def format_tanggal(dt):
         return "-"
     return dt.strftime('%d-%m-%Y')
 
+def cek_size_file(file_obj, max_mb=1):
+    if file_obj is None:
+        return None, None, None
+    size_mb = len(file_obj.getvalue()) / (1024*1024)
+    ext = file_obj.name.split('.')[-1].lower()
+    
+    # Kalo gambar JPG/PNG, limit 1MB
+    if ext in ['jpg', 'jpeg', 'png'] and size_mb > max_mb:
+        st.error(f"❌ File {file_obj.name} terlalu besar: {size_mb:.2f}MB. Max {max_mb}MB untuk gambar JPG/PNG.")
+        return None, None, None
+    
+    return file_obj.getvalue(), file_obj.name, file_obj.type
+
 def add_file_to_pdf_from_bytes(pdf_obj, file_bytes, file_name, title):
     if file_bytes is None:
         return
@@ -118,6 +131,14 @@ def generate_pdf_bukti(data):
         pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 7, f"TOTAL POTONGAN: Rp {data['total']:,}".replace(",", "."), 0, 1)
     
+    # Kritik & Saran
+    if data.get('kritik_saran', '').strip() != "":
+        pdf.ln(5)
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 7, "Kritik & Saran:", 0, 1)
+        pdf.set_font("Arial", "", 11)
+        pdf.multi_cell(0, 6, data['kritik_saran'])
+    
     pdf.ln(8)
     pdf.set_font("Arial", "I", 10)
     pdf.cell(0, 6, "Mohon karyawan mengirim file PDF ini via WhatsApp ke Bagian Pengurus PUSAF", 0, 1, "C")
@@ -125,6 +146,7 @@ def generate_pdf_bukti(data):
     # Gambar di akhir
     add_file_to_pdf_from_bytes(pdf, data.get('ktp_bytes'), data.get('ktp_name'), "LAMPIRAN: KTP KARYAWAN BARU")
     add_file_to_pdf_from_bytes(pdf, data.get('surat_bytes'), data.get('surat_name'), "LAMPIRAN: SURAT KETERANGAN SAKIT")
+    add_file_to_pdf_from_bytes(pdf, data.get('filelain_bytes'), data.get('filelain_name'), "LAMPIRAN: FILE LAINNYA")
     
     pdf_file = f"temp_{datetime.now().strftime('%H%M%S%f')}.pdf"
     pdf.output(pdf_file)
@@ -194,6 +216,15 @@ with st.form("form_pdf"):
     st.subheader("Upload Lampiran - Opsional")
     ktp_baru = st.file_uploader("Upload KTP Karyawan Baru", type=["jpg", "jpeg", "png", "pdf"])
     surat_sakit = st.file_uploader("Upload Surat Keterangan Sakit", type=["jpg", "jpeg", "png", "pdf"])
+    file_lainnya = st.file_uploader("Upload File Lainnya", type=["jpg", "jpeg", "png", "pdf"], help="Max 1MB untuk gambar JPG/PNG")
+    
+    st.markdown("---")
+    st.subheader("Kritik & Saran - Opsional")
+    kritik_saran = st.text_area(
+        "Masukkan kritik/saran untuk Bagian Pengurus PUSAF",
+        placeholder="Contoh: Tolong gajian dipercepat, atau sistem potongan kurang jelas...",
+        height=100
+    )
     
     submit = st.form_submit_button("Generate PDF Bukti", use_container_width=True)
 
@@ -202,12 +233,14 @@ if submit:
         st.error("❌ Nama Kantor, Nama Karyawan & Jumlah Hari Kerja wajib diisi!")
         st.stop()
     
-    # Simpan file jadi bytes
-    ktp_bytes = ktp_baru.getvalue() if ktp_baru else None
-    ktp_name = ktp_baru.name if ktp_baru else None
+    # Validasi + simpan file jadi bytes
+    ktp_bytes, ktp_name, ktp_type = cek_size_file(ktp_baru, 1)
+    surat_bytes, surat_name, surat_type = cek_size_file(surat_sakit, 1)
+    filelain_bytes, filelain_name, filelain_type = cek_size_file(file_lainnya, 1)
     
-    surat_bytes = surat_sakit.getvalue() if surat_sakit else None
-    surat_name = surat_sakit.name if surat_sakit else None
+    # Kalo ada file gambar >1MB, stop proses
+    if (ktp_baru and ktp_bytes is None) or (surat_sakit and surat_bytes is None) or (file_lainnya and filelain_bytes is None):
+        st.stop()
     
     jumlah_hari_kerja = to_int(jumlah_hari_kerja)
     potongan_bon = to_int(potongan_bon)
@@ -232,7 +265,7 @@ if submit:
         detail_pot_lain.append({"nama": pot["nama"], "jumlah": to_int(pot["jumlah"]), "sisa": to_int(pot["sisa"])})
     
     data_bukti = {
-        "tanggal": datetime.now().strftime('%d-%m-%Y %H:%M'),  # FORMAT TANGGAL UDAH GANTI
+        "tanggal": datetime.now().strftime('%d-%m-%Y %H:%M'),
         "kantor": nama_kantor,
         "karyawan": nama_karyawan,
         "hari_kerja": jumlah_hari_kerja,
@@ -240,8 +273,10 @@ if submit:
         "tgl_keluar": tgl_keluar,
         "nama_baru": nama_baru,
         "tgl_masuk": tgl_masuk,
+        "kritik_saran": kritik_saran.strip(),
         "ktp_bytes": ktp_bytes, "ktp_name": ktp_name,
         "surat_bytes": surat_bytes, "surat_name": surat_name,
+        "filelain_bytes": filelain_bytes, "filelain_name": filelain_name,
         "rincian": {
             "bon": potongan_bon, "sisa_bon": sisa_bon,
             "kredit": potongan_kredit, "sisa_kredit": sisa_kredit,
@@ -347,6 +382,14 @@ if st.session_state.rekap_list:
                 pdf_rekap.set_font("Arial", "B", 12)
                 pdf_rekap.cell(0, 7, f"TOTAL POTONGAN: Rp {data['total']:,}".replace(",", "."), 0, 1)
             
+            # Kritik & Saran di rekap
+            if data.get('kritik_saran', '').strip() != "":
+                pdf_rekap.ln(5)
+                pdf_rekap.set_font("Arial", "B", 12)
+                pdf_rekap.cell(0, 7, "Kritik & Saran:", 0, 1)
+                pdf_rekap.set_font("Arial", "", 11)
+                pdf_rekap.multi_cell(0, 6, data['kritik_saran'])
+            
             pdf_rekap.ln(8)
             pdf_rekap.set_font("Arial", "I", 10)
             pdf_rekap.cell(0, 6, "Mohon karyawan mengirim file PDF ini via WhatsApp ke Bagian Pengurus PUSAF", 0, 1, "C")
@@ -354,6 +397,7 @@ if st.session_state.rekap_list:
             # Gambar di akhir tiap rekap karyawan
             add_file_to_pdf_from_bytes(pdf_rekap, data.get('ktp_bytes'), data.get('ktp_name'), f"LAMPIRAN KTP - {data['karyawan']}")
             add_file_to_pdf_from_bytes(pdf_rekap, data.get('surat_bytes'), data.get('surat_name'), f"LAMPIRAN SURAT SAKIT - {data['karyawan']}")
+            add_file_to_pdf_from_bytes(pdf_rekap, data.get('filelain_bytes'), data.get('filelain_name'), f"LAMPIRAN LAINNYA - {data['karyawan']}")
         
         pdf_file = f"rekap_{datetime.now().strftime('%d%m%Y%H%M%S')}.pdf"
         pdf_rekap.output(pdf_file)
