@@ -222,7 +222,6 @@ with st.form("form_pdf"):
     st.subheader("Kritik & Saran - Opsional")
     kritik_saran = st.text_area(
         "Masukkan kritik/saran untuk Bagian Pengurus PUSAF",
-        placeholder="Contoh: Tolong gajian dipercepat, atau sistem potongan kurang jelas...",
         height=100
     )
     
@@ -392,7 +391,7 @@ if st.session_state.rekap_list:
             
             pdf_rekap.ln(8)
             pdf_rekap.set_font("Arial", "I", 10)
-            pdf_rekap.cell(0, 6, "Mohon karyawan mengirim file PDF ini via WhatsApp ke Bagian Pengurus PUSAF", 0, 1, "C")
+            pdf_rekap.cell(0, 6, "Mohon mengirim file PDF ini via WhatsApp ke Bagian Pengurus PUSAT", 0, 1, "C")
             
             # Gambar di akhir tiap rekap karyawan
             add_file_to_pdf_from_bytes(pdf_rekap, data.get('ktp_bytes'), data.get('ktp_name'), f"LAMPIRAN KTP - {data['karyawan']}")
